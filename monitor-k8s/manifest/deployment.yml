@@ -1,0 +1,75 @@
+---
+# Source: django-chart/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: django-svc
+  labels:
+    app: django-svc
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http
+  selector:
+    app: django
+
+---
+# Source: django-chart/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django
+  labels:
+    app: django
+spec:
+  revisionHistoryLimit: 10
+  replicas: 2
+  selector:
+    matchLabels:
+      app: django
+  strategy:
+    rollingUpdate:
+      maxSurge: 50%
+      maxUnavailable: 50%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: django
+    spec:
+      securityContext:
+        runAsUser: 1001
+      imagePullSecrets:
+        - name: docker-reg
+      containers:
+        - name: django
+          image: "parth10/monitor-k8s:v1"
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          livenessProbe:
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
+            httpGet:
+              path: /admin/
+              port: 8000
+          readinessProbe:
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
+            exec:
+              command:
+              - curl 
+              - localhost:8000
+          resources:
+            limits:
+              cpu: 128m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
